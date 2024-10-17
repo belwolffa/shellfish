@@ -1,0 +1,66 @@
+/** @jsx jsx */
+import { React, jsx } from 'jimu-core';
+import { AllWidgetProps } from 'jimu-core/lib/types/app-config';
+import { MapViewManager } from 'jimu-arcgis';
+import { Button } from 'jimu-ui';
+import Sketch from 'esri/widgets/Sketch';
+import Graphic from 'esri/Graphic';
+import * as geometryEngine from 'esri/geometry/geometryEngine';
+
+export default class MyDrawWidget extends React.PureComponent<AllWidgetProps<any>, any> {
+
+  mapViewManager = MapViewManager.getInstance();
+
+  componentDidMount() {
+    this.setupSketch();
+  }
+
+  setupSketch = () => {
+    const view = this.mapViewManager.getJimuMapView(this.props.useMapWidgetIds[0])?.view;
+
+    if (view) {
+      const sketch = new Sketch({
+        view: view,
+        layer: view.graphics
+      });
+
+      sketch.on('create', (event) => {
+        if (event.state === 'complete') {
+          this.showPolygonDetails(event.graphic.geometry);
+        }
+      });
+
+      view.ui.add(sketch, 'top-right');
+    }
+  };
+
+  showPolygonDetails = (polygon) => {
+    const areaInAcres = geometryEngine.geodesicArea(polygon, 'acres');
+    const coordinates = polygon.rings[0].map(coord => this.convertToDMS(coord[1], coord[0]));
+
+    alert(`Area: ${areaInAcres.toFixed(2)} acres\nCoordinates (DMS):\n${coordinates.join('\n')}`);
+  };
+
+  convertToDMS = (lat, lon) => {
+    const latDMS = this.convertToDegreesMinutes(lat);
+    const lonDMS = this.convertToDegreesMinutes(lon);
+
+    return `${latDMS} N, ${lonDMS} W`;
+  };
+
+  convertToDegreesMinutes = (coordinate) => {
+    const degrees = Math.floor(coordinate);
+    const minutesNotTruncated = (coordinate - degrees) * 60;
+    const minutes = Math.floor(minutesNotTruncated);
+    const seconds = ((minutesNotTruncated - minutes) * 60).toFixed(2);
+    return `${degrees}°${minutes}'${seconds}"`;
+  };
+
+  render() {
+    return (
+      <div className="widget-starter jimu-widget" style={{ padding: '10px' }}>
+        <Button type="primary" onClick={this.setupSketch}>Draw Polygon</Button>
+      </div>
+    );
+  }
+}
